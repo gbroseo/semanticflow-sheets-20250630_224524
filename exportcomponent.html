@@ -1,0 +1,120 @@
+<!-- This file includes embedded JS/CSS due to project type rules -->
+<script>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Export Options</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 10px; }
+    #export-options { margin-bottom: 10px; }
+    #export-options label.format-label { margin-right: 15px; }
+    #export-options input[type="radio"] { margin-right: 5px; }
+    #export-options button { padding: 5px 10px; }
+    #export-status { margin-top: 10px; color: #333; }
+  </style>
+</head>
+<body>
+  <div id="export-options"></div>
+  <div id="export-status"></div>
+  <script>
+    function onLoad() {
+      renderExportOptions();
+    }
+
+    function renderExportOptions() {
+      const container = document.getElementById('export-options');
+      container.innerHTML = '';
+
+      const title = document.createElement('div');
+      title.textContent = 'Select export format:';
+      container.appendChild(title);
+
+      ['JSON', 'CSV'].forEach(format => {
+        const id = 'export-' + format.toLowerCase();
+        const wrapper = document.createElement('label');
+        wrapper.className = 'format-label';
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'exportFormat';
+        radio.id = id;
+        radio.value = format.toLowerCase();
+        if (format === 'JSON') radio.checked = true;
+        const text = document.createTextNode(format);
+        wrapper.appendChild(radio);
+        wrapper.appendChild(text);
+        container.appendChild(wrapper);
+      });
+
+      const button = document.createElement('button');
+      button.textContent = 'Export';
+      button.onclick = handleExport;
+      container.appendChild(button);
+    }
+
+    function handleExport() {
+      const selected = document.querySelector('input[name="exportFormat"]:checked').value;
+      if (selected === 'json') {
+        handleExportJSON();
+      } else if (selected === 'csv') {
+        handleExportCSV();
+      }
+    }
+
+    function handleExportJSON() {
+      const status = document.getElementById('export-status');
+      status.textContent = 'Exporting JSON...';
+      google.script.run
+        .withSuccessHandler(data => {
+          try {
+            const jsonString = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'export.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            status.textContent = 'JSON export ready.';
+          } catch (e) {
+            status.textContent = 'Error generating JSON: ' + e.message;
+          }
+        })
+        .withFailureHandler(err => {
+          status.textContent = 'Error exporting JSON: ' + err.message;
+        })
+        .sc_handleExport('json');
+    }
+
+    function handleExportCSV() {
+      const status = document.getElementById('export-status');
+      status.textContent = 'Exporting CSV...';
+      google.script.run
+        .withSuccessHandler(csvString => {
+          try {
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'export.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            status.textContent = 'CSV export ready.';
+          } catch (e) {
+            status.textContent = 'Error generating CSV: ' + e.message;
+          }
+        })
+        .withFailureHandler(err => {
+          status.textContent = 'Error exporting CSV: ' + err.message;
+        })
+        .sc_handleExport('csv');
+    }
+
+    document.addEventListener('DOMContentLoaded', onLoad);
+  </script>
+</body>
+</html>
+</script>
