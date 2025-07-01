@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    #sidebar { font-family: Arial, sans-serif; padding: 10px; }
+    h1 { font-size: 18px; margin-bottom: 10px; }
+    h2 { font-size: 14px; margin: 10px 0 5px; }
+    label { display: block; margin-bottom: 8px; }
+    select, input[type="text"], input[type="number"], textarea { width: 100%; box-sizing: border-box; margin-top: 2px; }
+    textarea { resize: vertical; height: 60px; }
+    #submitButton { margin-top: 10px; width: 100%; padding: 8px; font-size: 14px; }
+    #status { margin-top: 10px; font-size: 12px; color: #555; }
+    .modeContainer { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h1>SemanticFlow Sheets</h1>
+    <div id="settings">
+      <h2>Settings</h2>
+      <label for="languageSelect">Language:
+        <select id="languageSelect">
+          <option value="en">English</option>
+          <option value="zh">??</option>
+        </select>
+      </label>
+    </div>
+    <div id="modeSelection">
+      <h2>Mode</h2>
+      <select id="modeSelect">
+        <option value="urlAnalysis">URL Analysis</option>
+        <option value="serpExploration">SERP Exploration</option>
+        <option value="entityGap">Entity Gap Analysis</option>
+      </select>
+    </div>
+    <div id="modeContainers">
+      <div id="urlAnalysis" class="modeContainer">
+        <label for="urlInput">URL(s):
+          <textarea id="urlInput" placeholder="Enter URL(s), one per line"></textarea>
+        </label>
+      </div>
+      <div id="serpExploration" class="modeContainer" style="display:none">
+        <label for="queryInput">Search Query:
+          <input type="text" id="queryInput" placeholder="Enter search query">
+        </label>
+        <label for="serpCountInput">Number of Results:
+          <input type="number" id="serpCountInput" min="1" max="50" value="10">
+        </label>
+      </div>
+      <div id="entityGap" class="modeContainer" style="display:none">
+        <label for="seedInput">Seed Content (URL or text):
+          <textarea id="seedInput" placeholder="Enter URL or text"></textarea>
+        </label>
+        <label for="targetInput">Target Content (URL or text):
+          <textarea id="targetInput" placeholder="Enter URL or text"></textarea>
+        </label>
+      </div>
+    </div>
+    <button id="submitButton">Submit</button>
+    <div id="status"></div>
+  </div>
+  <script>
+    function initSidebar() {
+      var modeSelect = document.getElementById('modeSelect');
+      modeSelect.addEventListener('change', function() {
+        selectMode(this.value);
+        saveSettings();
+      });
+      document.getElementById('submitButton').addEventListener('click', submitData);
+      document.getElementById('languageSelect').addEventListener('change', saveSettings);
+      loadSettings();
+    }
+
+    function loadSettings() {
+      google.script.run
+        .withSuccessHandler(function(settings) {
+          if (settings.language) {
+            document.getElementById('languageSelect').value = settings.language;
+          }
+          if (settings.mode) {
+            document.getElementById('modeSelect').value = settings.mode;
+            selectMode(settings.mode);
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('status').innerText = 'Error loading settings: ' + error.message;
+        })
+        .getUserSettings();
+    }
+
+    function saveSettings() {
+      var settings = {
+        language: document.getElementById('languageSelect').value,
+        mode: document.getElementById('modeSelect').value
+      };
+      google.script.run
+        .withSuccessHandler(function() {
+          var statusEl = document.getElementById('status');
+          var prevText = statusEl.innerText;
+          statusEl.innerText = 'Settings saved.';
+          setTimeout(function() {
+            if (statusEl.innerText === 'Settings saved.') {
+              statusEl.innerText = prevText;
+            }
+          }, 2000);
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('status').innerText = 'Error saving settings: ' + error.message;
+        })
+        .saveUserSettings(settings);
+    }
+
+    function selectMode(mode) {
+      var containers = document.querySelectorAll('.modeContainer');
+      containers.forEach(function(c) {
+        c.style.display = 'none';
+      });
+      var active = document.getElementById(mode);
+      if (active) {
+        active.style.display = '';
+      }
+    }
+
+    function submitData() {
+      var mode = document.getElementById('modeSelect').value;
+      var language = document.getElementById('languageSelect').value;
+      var statusEl = document.getElementById('status');
+      var data = { mode: mode, language: language };
+
+      if (mode === 'urlAnalysis') {
+        var urls = document.getElementById('urlInput').value
+          .split(/\r?\n/)
+          .map(function(u) { return u.trim(); })
+          .filter(function(u) { return u; });
+        if (urls.length === 0) {
+          statusEl.innerText = 'Please enter at least one URL.';
+          return;
+        }
+        var invalid = [];
+        urls.forEach(function(u) {
+          try {
+            new URL(u);
+          } catch (e) {
+            invalid.push(u);
+          }
+        });
+        if (invalid.length) {
+          statusEl.innerText = 'Invalid URL(s): ' + invalid.join(', ');
+          return;
+        }
+        data.urls = urls;
+      } else if (mode === 'serpExploration') {
+        var query = document.getElementById('queryInput').value.trim();
+        var count = parseInt(document.getElementById('serpCountInput').value, 10);
+        if (!query) {
+          statusEl.innerText = 'Search query cannot be empty.';
+          return;
+        }
+        if (isNaN(count) || count < 1 || count > 50) {
+          statusEl.innerText = 'Number of results must be between 1 and 50.';
+          return;
+        }
+        data.query = query;
+        data.count = count;
+      } else if (mode === 'entityGap') {
+        var seed = document.getElementById('seedInput').value.trim();
+        var target = document.getElementById('targetInput').value.trim();
+        if (!seed || !target) {
+          statusEl.innerText = 'Seed and target content cannot be empty.';
+          return;
+        }
+        data.seed = seed;
+        data.target = target;
+      }
+
+      document.getElementById('submitButton').disabled = true;
+      statusEl.innerText = 'Processing...';
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          statusEl.innerText = 'Completed successfully.';
+          document.getElementById('submitButton').disabled = false;
+        })
+        .withFailureHandler(function(error) {
+          statusEl.innerText = 'Error: ' + error.message;
+          document.getElementById('submitButton').disabled = false;
+        })
+        .handleSubmit(data);
+
+      saveSettings();
+    }
+
+    document.addEventListener('DOMContentLoaded', initSidebar);
+  </script>
+</body>
+</html>
