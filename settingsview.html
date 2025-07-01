@@ -1,0 +1,79 @@
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; padding: 16px; }
+    h2 { margin-top: 0; }
+    label { display: block; margin-top: 12px; font-weight: bold; }
+    input[type="password"], select { width: 100%; padding: 6px 8px; margin-top: 4px; box-sizing: border-box; }
+    .button-container { margin-top: 20px; text-align: right; }
+    button { padding: 8px 16px; margin-left: 8px; }
+    #message { margin-top: 12px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h2>Settings</h2>
+  <form id="settings-form">
+    <label for="apiKey">TextRazor API Key</label>
+    <input type="password" id="apiKey" name="apiKey" required>
+    <label for="language">Default Language</label>
+    <select id="language" name="language">
+      <option value="en">English</option>
+      <option value="zh">Chinese</option>
+    </select>
+    <div class="button-container">
+      <button type="button" id="cancel-button">Cancel</button>
+      <button type="submit" id="save-button">Save</button>
+    </div>
+    <div id="message" aria-live="polite"></div>
+  </form>
+  <script>
+    function initSettingsView() {
+      google.script.run
+        .withSuccessHandler(function(response) {
+          var settings = (response && response.settings) || {};
+          if (settings.apiKey) document.getElementById('apiKey').value = settings.apiKey;
+          if (settings.language) document.getElementById('language').value = settings.language;
+        })
+        .withFailureHandler(function(error) {
+          showMessage('Unable to load settings: ' + (error.message || error), true);
+        })
+        .getUserSettings();
+    }
+
+    function handleSettingsSave(event) {
+      event.preventDefault();
+      var apiKey = document.getElementById('apiKey').value.trim();
+      var language = document.getElementById('language').value;
+      if (!apiKey) {
+        showMessage('API Key is required.', true);
+        return;
+      }
+      var settings = { apiKey: apiKey, language: language };
+      google.script.run
+        .withSuccessHandler(function() {
+          google.script.host.close();
+        })
+        .withFailureHandler(function(error) {
+          showMessage('Save failed: ' + (error.message || error), true);
+        })
+        .saveUserSettings(settings);
+    }
+
+    function showMessage(text, isError) {
+      var msgDiv = document.getElementById('message');
+      msgDiv.style.color = isError ? '#d8000c' : '#4caf50';
+      msgDiv.textContent = text;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('settings-form').addEventListener('submit', handleSettingsSave);
+      document.getElementById('cancel-button').addEventListener('click', function() {
+        google.script.host.close();
+      });
+      initSettingsView();
+    });
+  </script>
+</body>
+</html>
