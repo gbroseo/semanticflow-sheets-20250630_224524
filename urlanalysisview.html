@@ -1,0 +1,175 @@
+<!-- This file includes embedded JS/CSS due to project type rules -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 16px;
+      }
+      h2 {
+        margin-bottom: 12px;
+      }
+      .form-group {
+        margin-bottom: 12px;
+      }
+      label {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: bold;
+      }
+      input[type="url"], select {
+        width: 100%;
+        padding: 6px 8px;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      button {
+        padding: 8px 16px;
+        background-color: #4285f4;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:disabled {
+        background-color: #a0c1f7;
+        cursor: default;
+      }
+      #loading {
+        display: none;
+        margin-top: 12px;
+        font-size: 14px;
+      }
+      #loading:after {
+        content: '';
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #ccc;
+        border-top-color: #333;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      #results {
+        display: none;
+        margin-top: 16px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        padding: 8px;
+        border: 1px solid #ddd;
+        text-align: left;
+      }
+      th {
+        background-color: #f4f4f4;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>URL Analysis</h2>
+    <div id="form-container">
+      <form id="url-analysis-form">
+        <div class="form-group">
+          <label for="url-input">URL</label>
+          <input type="url" id="url-input" name="url" required placeholder="https://example.com" />
+        </div>
+        <div class="form-group">
+          <label for="language-select">Language</label>
+          <select id="language-select" name="language">
+            <option value="en">English</option>
+            <option value="zh">Chinese</option>
+          </select>
+        </div>
+        <button type="submit" id="submit-button">Analyze</button>
+      </form>
+    </div>
+    <div id="loading">Analyzing</div>
+    <div id="results"></div>
+    <script>
+      document.addEventListener('DOMContentLoaded', renderUrlAnalysisForm);
+
+      function renderUrlAnalysisForm() {
+        const form = document.getElementById('url-analysis-form');
+        form.addEventListener('submit', handleUrlAnalysisSubmit);
+      }
+
+      function handleUrlAnalysisSubmit(event) {
+        event.preventDefault();
+        const urlInput = document.getElementById('url-input');
+        const url = urlInput.value.trim();
+        if (!url) {
+          alert('Please enter a valid URL.');
+          urlInput.focus();
+          return;
+        }
+        const language = document.getElementById('language-select').value;
+        const resultsContainer = document.getElementById('results');
+        resultsContainer.style.display = 'none';
+        resultsContainer.innerHTML = '';
+        toggleLoading(true);
+        google.script.run
+          .withSuccessHandler(displayResults)
+          .withFailureHandler(handleError)
+          .analyzeUrl(url, language);
+      }
+
+      function toggleLoading(isLoading) {
+        const submitButton = document.getElementById('submit-button');
+        const loadingIndicator = document.getElementById('loading');
+        submitButton.disabled = isLoading;
+        loadingIndicator.style.display = isLoading ? 'block' : 'none';
+      }
+
+      function displayResults(data) {
+        toggleLoading(false);
+        const container = document.getElementById('results');
+        if (!data || (Array.isArray(data) && data.length === 0)) {
+          container.textContent = 'No results found.';
+        } else if (Array.isArray(data)) {
+          const table = document.createElement('table');
+          const headerRow = document.createElement('tr');
+          Object.keys(data[0]).forEach(key => {
+            const th = document.createElement('th');
+            th.textContent = key;
+            headerRow.appendChild(th);
+          });
+          table.appendChild(headerRow);
+          data.forEach(row => {
+            const tr = document.createElement('tr');
+            Object.values(row).forEach(value => {
+              const td = document.createElement('td');
+              td.textContent = value;
+              tr.appendChild(td);
+            });
+            table.appendChild(tr);
+          });
+          container.appendChild(table);
+        } else if (typeof data === 'object') {
+          const pre = document.createElement('pre');
+          pre.textContent = JSON.stringify(data, null, 2);
+          container.appendChild(pre);
+        } else {
+          container.textContent = String(data);
+        }
+        container.style.display = 'block';
+      }
+
+      function handleError(error) {
+        toggleLoading(false);
+        const message = error && error.message ? error.message : String(error);
+        alert('Error: ' + message);
+      }
+    </script>
+  </body>
+</html>
