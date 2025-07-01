@@ -2,81 +2,245 @@
 <html>
 <head>
   <base target="_top">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap">
   <style>
-    #sidebar { font-family: Arial, sans-serif; padding: 10px; }
-    h1 { font-size: 18px; margin-bottom: 10px; }
-    h2 { font-size: 14px; margin: 10px 0 5px; }
-    label { display: block; margin-bottom: 8px; }
-    select, input[type="text"], input[type="number"], textarea { width: 100%; box-sizing: border-box; margin-top: 2px; }
-    textarea { resize: vertical; height: 60px; }
-    #submitButton { margin-top: 10px; width: 100%; padding: 8px; font-size: 14px; }
-    #status { margin-top: 10px; font-size: 12px; color: #555; }
-    .modeContainer { margin-top: 10px; }
+    /* Google Apps Script template syntax - includes styles.css content */
+    <?!= include('styles.css') ?>
+    
+    /* Additional custom styles for the unified sidebar */
+    .section {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    
+    .section-header {
+      padding: 12px 16px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #e0e0e0;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .section-header h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: #202124;
+    }
+    
+    .section-header .toggle-icon {
+      transition: transform 0.2s ease;
+      color: #5f6368;
+    }
+    
+    .section.collapsed .toggle-icon {
+      transform: rotate(-90deg);
+    }
+    
+    .section-content {
+      padding: 16px;
+      display: block;
+    }
+    
+    .section.collapsed .section-content {
+      display: none;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    
+    .input-group {
+      margin-bottom: 16px;
+    }
+    
+    .input-group label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #5f6368;
+    }
+    
+    .required:after {
+      content: ' *';
+      color: #d93025;
+    }
+    
+    .help-text {
+      font-size: 12px;
+      color: #5f6368;
+      margin-top: 4px;
+    }
+    
+    #status {
+      margin: 16px 0;
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      display: none;
+    }
+    
+    #status.success {
+      background-color: #e6f4ea;
+      color: #1e8e3e;
+      border: 1px solid #ceead6;
+      display: block;
+    }
+    
+    #status.error {
+      background-color: #fce8e6;
+      color: #d93025;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+    
+    #status:not(.success):not(.error) {
+      background-color: #e8f0fe;
+      color: #1a73e8;
+      border: 1px solid #dadce0;
+      display: block;
+    }
   </style>
 </head>
 <body>
-  <div id="sidebar">
-    <h1>SemanticFlow Sheets</h1>
-    <div id="settings">
-      <h2>Settings</h2>
-      <label for="languageSelect">Language:
-        <select id="languageSelect">
-          <option value="en">English</option>
-          <option value="zh">??</option>
-        </select>
-      </label>
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1 class="sidebar-title">SemanticFlow Sheets</h1>
     </div>
-    <div id="modeSelection">
-      <h2>Mode</h2>
-      <select id="modeSelect">
-        <option value="urlAnalysis">URL Analysis</option>
-        <option value="serpExploration">SERP Exploration</option>
-        <option value="entityGap">Entity Gap Analysis</option>
-      </select>
+    
+    <div class="content">
+      <!-- Settings Section -->
+      <div class="section" id="settingsSection">
+        <div class="section-header" onclick="toggleSection('settingsSection')">
+          <h2>Settings</h2>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="input-group">
+            <label for="textRazorApiKey" class="required">TextRazor API Key</label>
+            <input type="password" id="textRazorApiKey" placeholder="Enter your TextRazor API key">
+            <div class="help-text">Get your API key from textrazor.com</div>
+          </div>
+          
+          <div class="input-group">
+            <label for="serpApiKey">SERP API Key (Optional)</label>
+            <input type="password" id="serpApiKey" placeholder="Enter your SERP API key">
+            <div class="help-text">Required for SERP exploration features</div>
+          </div>
+          
+          <div class="input-group">
+            <label for="languageSelect">Default Language</label>
+            <select id="languageSelect">
+              <option value="en">English</option>
+              <option value="zh">中文 (Chinese)</option>
+            </select>
+          </div>
+          
+          <div class="input-group">
+            <label for="maxResults">Max Results per Analysis</label>
+            <input type="number" id="maxResults" min="1" max="100" value="10">
+            <div class="help-text">Number of results to return (1-100)</div>
+          </div>
+          
+          <div class="button-group">
+            <button class="button button-primary" onclick="saveAllSettings()">Save Settings</button>
+            <button class="button button-secondary" onclick="validateApiKey()">Test API Key</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Analysis Section -->
+      <div class="section" id="analysisSection">
+        <div class="section-header" onclick="toggleSection('analysisSection')">
+          <h2>Analysis</h2>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="input-group">
+            <label for="modeSelect">Analysis Mode</label>
+            <select id="modeSelect">
+              <option value="urlAnalysis">URL Analysis</option>
+              <option value="serpExploration">SERP Exploration</option>
+              <option value="entityGap">Entity Gap Analysis</option>
+            </select>
+          </div>
+          
+          <div id="modeContainers">
+            <div id="urlAnalysis" class="modeContainer">
+              <div class="input-group">
+                <label for="urlInput">URL(s)</label>
+                <textarea id="urlInput" placeholder="Enter URL(s), one per line" rows="4"></textarea>
+              </div>
+            </div>
+            
+            <div id="serpExploration" class="modeContainer" style="display:none">
+              <div class="input-group">
+                <label for="queryInput">Search Query</label>
+                <input type="text" id="queryInput" placeholder="Enter search query">
+              </div>
+              <div class="input-group">
+                <label for="serpCountInput">Number of Results</label>
+                <input type="number" id="serpCountInput" min="1" max="50" value="10">
+              </div>
+            </div>
+            
+            <div id="entityGap" class="modeContainer" style="display:none">
+              <div class="input-group">
+                <label for="seedInput">Seed Content (URL or text)</label>
+                <textarea id="seedInput" placeholder="Enter URL or text" rows="3"></textarea>
+              </div>
+              <div class="input-group">
+                <label for="targetInput">Target Content (URL or text)</label>
+                <textarea id="targetInput" placeholder="Enter URL or text" rows="3"></textarea>
+              </div>
+            </div>
+          </div>
+          
+          <button class="button button-primary" id="submitButton" style="width: 100%;">Analyze</button>
+        </div>
+      </div>
+      
+      <div id="status"></div>
     </div>
-    <div id="modeContainers">
-      <div id="urlAnalysis" class="modeContainer">
-        <label for="urlInput">URL(s):
-          <textarea id="urlInput" placeholder="Enter URL(s), one per line"></textarea>
-        </label>
-      </div>
-      <div id="serpExploration" class="modeContainer" style="display:none">
-        <label for="queryInput">Search Query:
-          <input type="text" id="queryInput" placeholder="Enter search query">
-        </label>
-        <label for="serpCountInput">Number of Results:
-          <input type="number" id="serpCountInput" min="1" max="50" value="10">
-        </label>
-      </div>
-      <div id="entityGap" class="modeContainer" style="display:none">
-        <label for="seedInput">Seed Content (URL or text):
-          <textarea id="seedInput" placeholder="Enter URL or text"></textarea>
-        </label>
-        <label for="targetInput">Target Content (URL or text):
-          <textarea id="targetInput" placeholder="Enter URL or text"></textarea>
-        </label>
-      </div>
-    </div>
-    <button id="submitButton">Submit</button>
-    <div id="status"></div>
   </div>
+  
   <script>
     function initSidebar() {
       var modeSelect = document.getElementById('modeSelect');
       modeSelect.addEventListener('change', function() {
         selectMode(this.value);
-        saveSettings();
       });
-      document.getElementById('submitButton').addEventListener('click', submitData);
-      document.getElementById('languageSelect').addEventListener('change', saveSettings);
       loadSettings();
+    }
+
+    function toggleSection(sectionId) {
+      var section = document.getElementById(sectionId);
+      section.classList.toggle('collapsed');
     }
 
     function loadSettings() {
       google.script.run
         .withSuccessHandler(function(settings) {
+          if (settings.textRazorApiKey) {
+            document.getElementById('textRazorApiKey').value = settings.textRazorApiKey;
+          }
+          if (settings.serpApiKey) {
+            document.getElementById('serpApiKey').value = settings.serpApiKey;
+          }
           if (settings.language) {
             document.getElementById('languageSelect').value = settings.language;
+          }
+          if (settings.maxResults) {
+            document.getElementById('maxResults').value = settings.maxResults;
           }
           if (settings.mode) {
             document.getElementById('modeSelect').value = settings.mode;
@@ -84,31 +248,66 @@
           }
         })
         .withFailureHandler(function(error) {
-          document.getElementById('status').innerText = 'Error loading settings: ' + error.message;
+          showStatus('Error loading settings: ' + error.message, 'error');
         })
         .getUserSettings();
     }
 
-    function saveSettings() {
+    function saveAllSettings() {
       var settings = {
+        textRazorApiKey: document.getElementById('textRazorApiKey').value.trim(),
+        serpApiKey: document.getElementById('serpApiKey').value.trim(),
         language: document.getElementById('languageSelect').value,
+        maxResults: document.getElementById('maxResults').value,
         mode: document.getElementById('modeSelect').value
       };
+      
+      if (!settings.textRazorApiKey) {
+        showStatus('TextRazor API key is required', 'error');
+        return;
+      }
+      
+      showStatus('Saving settings...', '');
+      
       google.script.run
-        .withSuccessHandler(function() {
-          var statusEl = document.getElementById('status');
-          var prevText = statusEl.innerText;
-          statusEl.innerText = 'Settings saved.';
-          setTimeout(function() {
-            if (statusEl.innerText === 'Settings saved.') {
-              statusEl.innerText = prevText;
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showStatus('Settings saved successfully!', 'success');
+          } else {
+            var errorMsg = 'Failed to save settings';
+            if (result.errors) {
+              errorMsg += ': ' + Object.values(result.errors).join(', ');
             }
-          }, 2000);
+            showStatus(errorMsg, 'error');
+          }
         })
         .withFailureHandler(function(error) {
-          document.getElementById('status').innerText = 'Error saving settings: ' + error.message;
+          showStatus('Error saving settings: ' + error.message, 'error');
         })
         .saveUserSettings(settings);
+    }
+
+    function validateApiKey() {
+      var apiKey = document.getElementById('textRazorApiKey').value.trim();
+      if (!apiKey) {
+        showStatus('Please enter an API key first', 'error');
+        return;
+      }
+      
+      showStatus('Validating API key...', '');
+      
+      google.script.run
+        .withSuccessHandler(function(isValid) {
+          if (isValid) {
+            showStatus('API key is valid!', 'success');
+          } else {
+            showStatus('API key is invalid or expired', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showStatus('Error validating API key: ' + error.message, 'error');
+        })
+        .testApiKey(apiKey);
     }
 
     function selectMode(mode) {
@@ -125,8 +324,15 @@
     function submitData() {
       var mode = document.getElementById('modeSelect').value;
       var language = document.getElementById('languageSelect').value;
-      var statusEl = document.getElementById('status');
       var data = { mode: mode, language: language };
+
+      // Validate that API key is set
+      var apiKey = document.getElementById('textRazorApiKey').value.trim();
+      if (!apiKey) {
+        showStatus('Please set your TextRazor API key in Settings first', 'error');
+        document.getElementById('settingsSection').classList.remove('collapsed');
+        return;
+      }
 
       if (mode === 'urlAnalysis') {
         var urls = document.getElementById('urlInput').value
@@ -134,7 +340,7 @@
           .map(function(u) { return u.trim(); })
           .filter(function(u) { return u; });
         if (urls.length === 0) {
-          statusEl.innerText = 'Please enter at least one URL.';
+          showStatus('Please enter at least one URL', 'error');
           return;
         }
         var invalid = [];
@@ -146,7 +352,7 @@
           }
         });
         if (invalid.length) {
-          statusEl.innerText = 'Invalid URL(s): ' + invalid.join(', ');
+          showStatus('Invalid URL(s): ' + invalid.join(', '), 'error');
           return;
         }
         data.urls = urls;
@@ -154,11 +360,11 @@
         var query = document.getElementById('queryInput').value.trim();
         var count = parseInt(document.getElementById('serpCountInput').value, 10);
         if (!query) {
-          statusEl.innerText = 'Search query cannot be empty.';
+          showStatus('Search query cannot be empty', 'error');
           return;
         }
         if (isNaN(count) || count < 1 || count > 50) {
-          statusEl.innerText = 'Number of results must be between 1 and 50.';
+          showStatus('Number of results must be between 1 and 50', 'error');
           return;
         }
         data.query = query;
@@ -167,7 +373,7 @@
         var seed = document.getElementById('seedInput').value.trim();
         var target = document.getElementById('targetInput').value.trim();
         if (!seed || !target) {
-          statusEl.innerText = 'Seed and target content cannot be empty.';
+          showStatus('Seed and target content cannot be empty', 'error');
           return;
         }
         data.seed = seed;
@@ -175,23 +381,30 @@
       }
 
       document.getElementById('submitButton').disabled = true;
-      statusEl.innerText = 'Processing...';
+      showStatus('Processing your request...', '');
 
       google.script.run
         .withSuccessHandler(function(response) {
-          statusEl.innerText = 'Completed successfully.';
+          showStatus('Analysis completed successfully! Check your spreadsheet for results.', 'success');
           document.getElementById('submitButton').disabled = false;
         })
         .withFailureHandler(function(error) {
-          statusEl.innerText = 'Error: ' + error.message;
+          showStatus('Error: ' + error.message, 'error');
           document.getElementById('submitButton').disabled = false;
         })
         .handleSubmit(data);
-
-      saveSettings();
     }
 
-    document.addEventListener('DOMContentLoaded', initSidebar);
+    function showStatus(message, type) {
+      var statusEl = document.getElementById('status');
+      statusEl.textContent = message;
+      statusEl.className = type;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      initSidebar();
+      document.getElementById('submitButton').addEventListener('click', submitData);
+    });
   </script>
 </body>
 </html>

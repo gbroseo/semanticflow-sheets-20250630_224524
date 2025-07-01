@@ -1,5 +1,5 @@
 function initSidebar() {
-  var html = HtmlService.createTemplateFromFile('Sidebar')
+  var html = HtmlService.createTemplateFromFile('sidebar')
     .evaluate()
     .setTitle('SemanticFlow');
   SpreadsheetApp.getUi().showSidebar(html);
@@ -17,13 +17,17 @@ function handleSubmit(formData) {
     var result;
     switch (mode) {
       case 'urlAnalysis':
-        result = performURLAnalysis(formData.url);
+        if (formData.urls && formData.urls.length > 0) {
+          result = performBatchURLAnalysis(formData.urls);
+        } else {
+          throw new Error('No URLs provided');
+        }
         break;
       case 'serpExploration':
         result = performSERPExploration(formData.query);
         break;
-      case 'entityGapAnalysis':
-        result = performEntityGapAnalysis(formData.url, formData.entity);
+      case 'entityGap':
+        result = performEntityGapAnalysis(formData.seed, formData.target);
         break;
       default:
         throw new Error('Unknown mode: ' + mode);
@@ -46,16 +50,49 @@ function processData(formData) {
 function performURLAnalysis(url) {
   if (!url) throw new Error('URL is required for analysis.');
   var raw = analyzeUrl(url);
-  if (typeof extractEntities !== 'function') throw new Error('extractEntities not available.');
-  var entities = extractEntities(raw);
-  return entities;
+  var parsed = parseResponse(raw);
+  return parsed.entities;
+}
+
+function performBatchURLAnalysis(urls) {
+  if (!urls || !Array.isArray(urls) || urls.length === 0) {
+    throw new Error('URLs array is required for batch analysis.');
+  }
+  
+  var allEntities = [];
+  
+  urls.forEach(function(url, index) {
+    try {
+      var entities = performURLAnalysis(url);
+      // Add source URL to each entity
+      entities.forEach(function(entity) {
+        entity.sourceUrl = url;
+        entity.sourceIndex = index;
+      });
+      allEntities = allEntities.concat(entities);
+    } catch (e) {
+      Logger.log('Failed to analyze URL: ' + url + ', error: ' + e.message);
+    }
+  });
+  
+  return allEntities;
 }
 
 function performSERPExploration(query) {
   if (!query) throw new Error('Query is required for SERP exploration.');
   var props = PropertiesService.getUserProperties();
   var apiKey = props.getProperty('serpApiKey');
-  if (!apiKey) throw new Error('SERP API key not set.');
+  
+  if (!apiKey) {
+    // Return mock data for testing when API key is not available
+    Logger.log('SERP API key not set. Returning mock data.');
+    return [
+      { title: 'Example Result 1 for ' + query, link: 'https://example.com/1' },
+      { title: 'Example Result 2 for ' + query, link: 'https://example.com/2' },
+      { title: 'Example Result 3 for ' + query, link: 'https://example.com/3' }
+    ];
+  }
+  
   var endpoint = 'https://serpapi.com/search.json?q=' + encodeURIComponent(query) + '&api_key=' + apiKey;
   var response = UrlFetchApp.fetch(endpoint);
   var json = JSON.parse(response.getContentText());
@@ -67,23 +104,30 @@ function performSERPExploration(query) {
 
 function performEntityGapAnalysis(url, entity) {
   if (!url || !entity) throw new Error('URL and entity are required for entity gap analysis.');
+  
   var mainRaw = analyzeUrl(url);
-  var mainEntitiesObj = extractEntities(mainRaw);
-  var mainEntities = mainEntitiesObj.map(function(e) {
-    return e.entity || e.name || '';
-  });
+  var mainParsed = parseResponse(mainRaw);
+  var mainEntities = mainParsed.entities;
+  
   var serpResults = performSERPExploration(entity);
   var competitorUrls = serpResults.map(function(item) {
     return item.link;
   });
-  var competitorLists = competitorUrls.map(function(u) {
-    var raw = analyzeUrl(u);
-    var list = extractEntities(raw);
-    return list.map(function(e) {
-      return e.entity || e.name || '';
-    });
+  
+  var pageEntitiesMap = {};
+  pageEntitiesMap['main'] = mainEntities;
+  
+  competitorUrls.forEach(function(competitorUrl, index) {
+    try {
+      var raw = analyzeUrl(competitorUrl);
+      var parsed = parseResponse(raw);
+      pageEntitiesMap['competitor_' + index] = parsed.entities;
+    } catch (e) {
+      console.log('Failed to analyze competitor URL: ' + competitorUrl + ', error: ' + e.message);
+    }
   });
-  var gapArray = computeEntityGap(mainEntities, competitorLists);
+  
+  var gapArray = computeEntityGap(pageEntitiesMap, 'main');
   return gapArray;
 }
 

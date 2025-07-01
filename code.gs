@@ -1,7 +1,7 @@
 function onOpen(e) {
   SpreadsheetApp.getUi()
     .createAddonMenu()
-    .addItem('Open SemanticFlow Sidebar', 'showSidebar')
+    .addItem('Open Sidebar', 'showSidebar')
     .addToUi();
 }
 
@@ -10,7 +10,7 @@ function onInstall(e) {
 }
 
 function showSidebar() {
-  const htmlOutput = HtmlService.createTemplateFromFile('Sidebar')
+  const htmlOutput = HtmlService.createTemplateFromFile('sidebar')
     .evaluate()
     .setTitle('SemanticFlow Sheets')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');

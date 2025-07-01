@@ -53,7 +53,8 @@ function _callTextRazor(params) {
     var options = {
       method: 'post',
       payload: payload,
-      muteHttpExceptions: true
+      muteHttpExceptions: true,
+      contentType: 'application/x-www-form-urlencoded'
     };
     var res = _fetchWithRetry(TEXT_RAZOR_ENDPOINT, options);
     var code = res.getResponseCode();
