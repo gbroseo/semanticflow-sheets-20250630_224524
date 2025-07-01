@@ -1,0 +1,195 @@
+<!-- This file includes embedded JS/CSS due to project type rules -->
+<script>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; }
+    select, input[type="text"], button { width: 100%; padding: 8px; box-sizing: border-box; }
+    button { background-color: #4285f4; color: white; border: none; cursor: pointer; }
+    button:disabled { background-color: #ccc; cursor: default; }
+  </style>
+</head>
+<body>
+  <form id="entityGapForm">
+    <div class="form-group">
+      <label for="serpSheetSelect">SERP Sheet</label>
+      <select id="serpSheetSelect" name="serpSheet"></select>
+    </div>
+    <div class="form-group">
+      <label for="targetColumnSelect">Target Column</label>
+      <select id="targetColumnSelect" name="targetColumn"></select>
+    </div>
+    <div class="form-group">
+      <label for="languageSelect">Language</label>
+      <select id="languageSelect" name="language">
+        <option value="en">English</option>
+        <option value="zh">Chinese</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="entitiesInput">Entities (comma separated)</label>
+      <input type="text" id="entitiesInput" name="entities" placeholder="e.g. Person, Organization, Location">
+    </div>
+    <div class="form-group">
+      <button type="button" id="submitBtn" disabled>Analyze Entity Gap</button>
+    </div>
+  </form>
+  <script>
+    document.addEventListener('DOMContentLoaded', renderEntityGapForm);
+
+    function renderEntityGapForm() {
+      var sheetSelect = document.getElementById('serpSheetSelect');
+      var columnSelect = document.getElementById('targetColumnSelect');
+      var submitBtn = document.getElementById('submitBtn');
+
+      sheetSelect.disabled = true;
+      columnSelect.disabled = true;
+      submitBtn.disabled = true;
+
+      // Clear existing options
+      sheetSelect.innerHTML = '';
+      columnSelect.innerHTML = '';
+
+      // Placeholder for sheet select
+      var sheetPlaceholder = document.createElement('option');
+      sheetPlaceholder.textContent = 'Loading sheets...';
+      sheetPlaceholder.disabled = true;
+      sheetPlaceholder.selected = true;
+      sheetSelect.appendChild(sheetPlaceholder);
+
+      google.script.run
+        .withSuccessHandler(function(sheets) {
+          sheetSelect.innerHTML = '';
+          // Placeholder option
+          var placeholderOpt = document.createElement('option');
+          placeholderOpt.textContent = 'Select a sheet';
+          placeholderOpt.disabled = true;
+          placeholderOpt.selected = true;
+          sheetSelect.appendChild(placeholderOpt);
+
+          if (!sheets || sheets.length === 0) {
+            var noOpt = document.createElement('option');
+            noOpt.textContent = 'No sheets available';
+            noOpt.disabled = true;
+            sheetSelect.appendChild(noOpt);
+            columnSelect.innerHTML = '';
+            var colPlaceholder = document.createElement('option');
+            colPlaceholder.textContent = 'Select a column';
+            colPlaceholder.disabled = true;
+            colPlaceholder.selected = true;
+            columnSelect.appendChild(colPlaceholder);
+            columnSelect.disabled = true;
+            submitBtn.disabled = true;
+            return;
+          }
+
+          sheets.forEach(function(name) {
+            var option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            sheetSelect.appendChild(option);
+          });
+          sheetSelect.disabled = false;
+          // Automatically load columns for the first sheet
+          sheetSelect.value = sheets[0];
+          loadColumns(sheets[0]);
+        })
+        .withFailureHandler(function(error) {
+          alert('Error loading sheets: ' + error.message);
+        })
+        .getSERPSheetNames();
+
+      sheetSelect.addEventListener('change', function() {
+        loadColumns(this.value);
+      });
+
+      submitBtn.addEventListener('click', handleEntityGapSubmit);
+    }
+
+    function loadColumns(sheetName) {
+      var columnSelect = document.getElementById('targetColumnSelect');
+      var submitBtn = document.getElementById('submitBtn');
+
+      columnSelect.innerHTML = '';
+      // Placeholder while loading columns
+      var placeholderOpt = document.createElement('option');
+      placeholderOpt.textContent = 'Loading columns...';
+      placeholderOpt.disabled = true;
+      placeholderOpt.selected = true;
+      columnSelect.appendChild(placeholderOpt);
+
+      columnSelect.disabled = true;
+      submitBtn.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function(headers) {
+          columnSelect.innerHTML = '';
+          var placeholderCol = document.createElement('option');
+          placeholderCol.textContent = 'Select a column';
+          placeholderCol.disabled = true;
+          placeholderCol.selected = true;
+          columnSelect.appendChild(placeholderCol);
+
+          if (!headers || headers.length === 0) {
+            var noColOpt = document.createElement('option');
+            noColOpt.textContent = 'No columns found';
+            noColOpt.disabled = true;
+            columnSelect.appendChild(noColOpt);
+            columnSelect.disabled = true;
+            submitBtn.disabled = true;
+            return;
+          }
+
+          headers.forEach(function(header) {
+            var option = document.createElement('option');
+            option.value = header;
+            option.textContent = header;
+            columnSelect.appendChild(option);
+          });
+          columnSelect.disabled = false;
+          submitBtn.disabled = false;
+        })
+        .withFailureHandler(function(error) {
+          alert('Error loading columns: ' + error.message);
+        })
+        .getSheetHeaders(sheetName);
+    }
+
+    function handleEntityGapSubmit() {
+      var serpSheet = document.getElementById('serpSheetSelect').value;
+      var targetColumn = document.getElementById('targetColumnSelect').value;
+      var language = document.getElementById('languageSelect').value;
+      var entitiesRaw = document.getElementById('entitiesInput').value;
+      var entities = entitiesRaw.split(',').map(function(item) { return item.trim(); }).filter(function(item) { return item; });
+
+      if (!serpSheet || !targetColumn) {
+        alert('Please select a SERP sheet and a target column.');
+        return;
+      }
+      if (entities.length === 0) {
+        alert('Please enter at least one entity to analyze.');
+        return;
+      }
+
+      var submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Analyzing...';
+
+      google.script.run
+        .withSuccessHandler(function() {
+          google.script.host.close();
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Analyze Entity Gap';
+        })
+        .performEntityGapAnalysis(serpSheet, targetColumn, language, entities);
+    }
+  </script>
+</body>
+</html>
+</script>
