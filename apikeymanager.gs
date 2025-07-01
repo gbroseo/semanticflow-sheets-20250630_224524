@@ -29,8 +29,11 @@ function validateApiKey() {
   try {
     response = UrlFetchApp.fetch('https://api.textrazor.com', {
       method: 'post',
-      headers: { 'x-textrazor-key': key },
-      payload: { text: 'test' },
+      payload: { 
+        apiKey: key,
+        text: 'test',
+        extractors: 'entities'
+      },
       muteHttpExceptions: true,
       contentType: 'application/x-www-form-urlencoded'
     });

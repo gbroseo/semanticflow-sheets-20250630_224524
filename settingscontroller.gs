@@ -7,6 +7,11 @@ function getUserSettings() {
   return PropertiesService.getUserProperties().getProperties();
 }
 
+function saveUserSettings(settings) {
+  // This is a wrapper for the saveSettings function to match the sidebar's expectations
+  return saveSettings(settings);
+}
+
 function saveSettings(settings) {
   var validation = validateSettings(settings);
   if (!validation.success) {
