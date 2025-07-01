@@ -1,7 +1,7 @@
 function onOpen(e) {
   SpreadsheetApp.getUi()
     .createAddonMenu()
-    .addItem('Open SemanticFlow Sidebar', 'showSidebar')
+    .addItem('Open Sidebar', 'showSidebar')
     .addToUi();
 }
 

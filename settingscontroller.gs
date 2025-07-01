@@ -4,7 +4,20 @@ function openSettings() {
 }
 
 function getUserSettings() {
-  return PropertiesService.getUserProperties().getProperties();
+  var userProps = PropertiesService.getUserProperties().getProperties();
+  var docProps = PropertiesService.getDocumentProperties();
+  
+  // Get TextRazor API key from document properties
+  var textRazorApiKey = docProps.getProperty('TEXTRAZOR_API_KEY') || getApiKey();
+  var language = docProps.getProperty('TEXTRAZOR_LANGUAGE') || getLanguage();
+  
+  // Merge settings
+  var settings = Object.assign({}, userProps, {
+    textRazorApiKey: textRazorApiKey,
+    language: language
+  });
+  
+  return settings;
 }
 
 function saveUserSettings(settings) {
@@ -18,12 +31,29 @@ function saveSettings(settings) {
     return { success: false, errors: validation.errors };
   }
   try {
-    var props = PropertiesService.getUserProperties();
+    var userProps = PropertiesService.getUserProperties();
+    var docProps = PropertiesService.getDocumentProperties();
     var propsToSet = {};
+    
     Object.keys(settings).forEach(function(key) {
-      propsToSet[key] = String(settings[key]);
+      if (key === 'textRazorApiKey') {
+        // Store TextRazor API key in document properties as expected by textrazorclient.gs
+        docProps.setProperty('TEXTRAZOR_API_KEY', settings[key]);
+        // Also store in APIKeyManager format
+        setApiKey(settings[key]);
+      } else {
+        // Store other settings in user properties
+        propsToSet[key] = String(settings[key]);
+      }
     });
-    props.setProperties(propsToSet);
+    
+    userProps.setProperties(propsToSet);
+    
+    // Store language using APIKeyManager
+    if (settings.language) {
+      docProps.setProperty('TEXTRAZOR_LANGUAGE', settings.language);
+    }
+    
     return { success: true };
   } catch (e) {
     Logger.log('Error saving settings: ' + e.toString());
@@ -36,9 +66,6 @@ function validateSettings(settings) {
   if (!settings.textRazorApiKey || !settings.textRazorApiKey.trim()) {
     errors.textRazorApiKey = 'TextRazor API key is required.';
   }
-  if (!settings.serpApiKey || !settings.serpApiKey.trim()) {
-    errors.serpApiKey = 'SERP API key is required.';
-  }
   var supportedLangs = ['en', 'zh'];
   if (!settings.language || supportedLangs.indexOf(settings.language) === -1) {
     errors.language = 'Language must be one of: ' + supportedLangs.join(', ');
@@ -50,6 +77,24 @@ function validateSettings(settings) {
     }
   }
   return { success: Object.keys(errors).length === 0, errors: errors };
+}
+
+function testApiKey(apiKey) {
+  // Temporarily set the API key for validation
+  var originalKey = PropertiesService.getDocumentProperties().getProperty('TEXTRAZOR_API_KEY');
+  PropertiesService.getDocumentProperties().setProperty('TEXTRAZOR_API_KEY', apiKey);
+  
+  try {
+    var isValid = validateApiKey();
+    return isValid;
+  } finally {
+    // Restore original key
+    if (originalKey) {
+      PropertiesService.getDocumentProperties().setProperty('TEXTRAZOR_API_KEY', originalKey);
+    } else {
+      PropertiesService.getDocumentProperties().deleteProperty('TEXTRAZOR_API_KEY');
+    }
+  }
 }
 
 function closeSettings() {
