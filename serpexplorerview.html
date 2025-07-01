@@ -1,0 +1,81 @@
+<!-- This file includes embedded JS/CSS due to project type rules -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SemanticFlow SERP Explorer</title>
+  <style>
+    body { font-family: Roboto, Arial, sans-serif; margin: 0; padding: 16px; }
+    h2 { margin-top: 0; font-size: 18px; }
+    form { display: flex; flex-direction: column; }
+    .field { margin-bottom: 12px; }
+    label { display: block; margin-bottom: 4px; font-size: 14px; color: #202124; }
+    input[type="text"], input[type="number"], select { width: 100%; padding: 8px; box-sizing: border-box; font-size: 14px; border: 1px solid #dadce0; border-radius: 4px; }
+    button { padding: 10px 16px; font-size: 14px; color: #fff; background-color: #1a73e8; border: none; border-radius: 4px; cursor: pointer; }
+    button:disabled { background-color: #c6dafc; cursor: default; }
+    #serpStatus { margin-top: 12px; font-size: 13px; color: #d93025; }
+  </style>
+  <script>
+    function renderSERPForm() {
+      var form = document.getElementById('serpForm');
+      if (form) form.addEventListener('submit', handleSERPSubmit);
+    }
+    function handleSERPSubmit(event) {
+      event.preventDefault();
+      var submitBtn = document.getElementById('serpSubmitBtn');
+      var statusEl = document.getElementById('serpStatus');
+      if (submitBtn.disabled) return;
+      var query = document.getElementById('serpQuery').value.trim();
+      var numResults = parseInt(document.getElementById('serpNumResults').value, 10);
+      var language = document.getElementById('serpLanguage').value;
+      statusEl.textContent = '';
+      if (!query) {
+        statusEl.textContent = 'Please enter search keywords.';
+        document.getElementById('serpQuery').focus();
+        return;
+      }
+      if (isNaN(numResults) || numResults < 1 || numResults > 50) {
+        statusEl.textContent = 'Please enter a valid number of results (1?50).';
+        document.getElementById('serpNumResults').focus();
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Exploring?';
+      google.script.run
+        .withSuccessHandler(function() {
+          google.script.host.close();
+        })
+        .withFailureHandler(function(error) {
+          statusEl.textContent = 'Error: ' + (error.message || error);
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Explore SERP';
+        })
+        .performSERPExploration(query, numResults, language);
+    }
+    document.addEventListener('DOMContentLoaded', renderSERPForm);
+  </script>
+</head>
+<body>
+  <h2>SERP Explorer</h2>
+  <form id="serpForm">
+    <div class="field">
+      <label for="serpQuery">Keywords</label>
+      <input type="text" id="serpQuery" name="query" placeholder="e.g. artificial intelligence" required>
+    </div>
+    <div class="field">
+      <label for="serpNumResults">Number of Results</label>
+      <input type="number" id="serpNumResults" name="numResults" value="10" min="1" max="50" required>
+    </div>
+    <div class="field">
+      <label for="serpLanguage">Language</label>
+      <select id="serpLanguage" name="language">
+        <option value="en">English</option>
+        <option value="zh">Chinese</option>
+      </select>
+    </div>
+    <button type="submit" id="serpSubmitBtn">Explore SERP</button>
+  </form>
+  <div id="serpStatus"></div>
+</body>
+</html>
